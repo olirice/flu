@@ -1,0 +1,69 @@
+site_name: flu - Embedded Rust Pipeline Tool
+site_description: A CLI for running Rust data pipeline one-liners with native performance
+site_author: flu contributors
+repo_url: https://github.com/your-org/flu
+repo_name: your-org/flu
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: deep orange
+      accent: orange
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: deep orange
+      accent: orange
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - search.highlight
+    - content.code.copy
+
+nav:
+  - Home: index.md
+  - Guide:
+      - Installation: guide/installation.md
+      - Quick Start: guide/quickstart.md
+      - CLI Usage: guide/cli.md
+  - API Reference:
+      - Overview: api/overview.md
+      - Selection: api/selection.md
+      - Transformation: api/transformation.md
+      - Grouping: api/grouping.md
+      - Joins: api/joins.md
+      - Terminal: api/terminal.md
+  - Examples:
+      - Log Processing: examples/logs.md
+      - Data Analysis: examples/data.md
+      - Text Processing: examples/text.md
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - admonition
+  - pymdownx.details
+  - pymdownx.tabbed:
+      alternate_style: true
+  - attr_list
+  - md_in_html
+  - toc:
+      permalink: true
+
+plugins:
+  - search
+  - git-revision-date-localized
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/your-org/flu

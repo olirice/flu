@@ -1,0 +1,37 @@
+[package]
+name = "flu"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Self-contained Rust data pipeline tool with embedded compiler"
+
+[[bin]]
+name = "flu"
+path = "src/main.rs"
+
+[dependencies]
+flu-prelude = { workspace = true }
+clap = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+sha2 = { workspace = true }
+dirs = { workspace = true }
+tar = { workspace = true }
+zstd = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[build-dependencies]
+reqwest = { workspace = true }
+tar = { workspace = true }
+zstd = { workspace = true }
+anyhow = { workspace = true }
+
+[dev-dependencies]
+assert_cmd = { workspace = true }
+predicates = { workspace = true }
+
+[lints]
+workspace = true

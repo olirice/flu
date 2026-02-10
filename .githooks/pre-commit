@@ -1,0 +1,29 @@
+#!/bin/bash
+# Pre-commit hook for flu project
+
+set -e
+
+echo "🔍 Running pre-commit checks..."
+
+# Format check
+echo "  → Checking formatting..."
+if ! cargo fmt -- --check; then
+    echo "❌ Format issues found. Run: cargo fmt"
+    exit 1
+fi
+
+# Clippy (allow cargo lints)
+echo "  → Running clippy..."
+if ! cargo clippy --all-targets --all-features -- -D warnings -A clippy::cargo; then
+    echo "❌ Clippy warnings found"
+    exit 1
+fi
+
+# Tests (lib only for speed)
+echo "  → Running tests..."
+if ! cargo test --lib --all; then
+    echo "❌ Tests failed"
+    exit 1
+fi
+
+echo "✅ All pre-commit checks passed"

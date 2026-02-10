@@ -1,0 +1,17 @@
+[package]
+name = "flu-core"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Core iterator library for flu data pipelines"
+
+[dependencies]
+itertools = { workspace = true }
+
+[dev-dependencies]
+proptest = { workspace = true }
+
+[lints]
+workspace = true
