@@ -24,6 +24,16 @@ impl Cache {
         Ok(Self { cache_dir })
     }
 
+    /// Create a new cache manager with a custom directory (primarily for testing)
+    #[cfg(test)]
+    pub fn with_dir(cache_dir: PathBuf) -> Result<Self> {
+        fs::create_dir_all(&cache_dir)?;
+        fs::create_dir_all(cache_dir.join("binaries"))?;
+        fs::create_dir_all(cache_dir.join("sources"))?;
+
+        Ok(Self { cache_dir })
+    }
+
     /// Get the cache directory path
     #[allow(clippy::missing_const_for_fn)]
     pub fn cache_dir(&self) -> &PathBuf {
@@ -134,9 +144,22 @@ mod tests {
     use std::fs::File;
     use std::io::Write;
 
+    fn test_cache() -> Cache {
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let temp_dir = std::env::temp_dir().join("lob_test_cache").join(format!(
+            "{}_{}",
+            std::process::id(),
+            timestamp
+        ));
+        Cache::with_dir(temp_dir).unwrap()
+    }
+
     #[test]
     fn hash_consistency() {
-        let cache = Cache::new().unwrap();
+        let cache = test_cache();
         let source = "let x = 42;";
         let hash1 = cache.hash_source(source);
         let hash2 = cache.hash_source(source);
@@ -145,7 +168,7 @@ mod tests {
 
     #[test]
     fn hash_uniqueness() {
-        let cache = Cache::new().unwrap();
+        let cache = test_cache();
         let hash1 = cache.hash_source("let x = 1;");
         let hash2 = cache.hash_source("let x = 2;");
         assert_ne!(hash1, hash2);
@@ -153,21 +176,21 @@ mod tests {
 
     #[test]
     fn cache_dir_returns_path() {
-        let cache = Cache::new().unwrap();
+        let cache = test_cache();
         let dir = cache.cache_dir();
         assert!(dir.to_string_lossy().contains("lob"));
     }
 
     #[test]
     fn get_binary_cache_miss() {
-        let cache = Cache::new().unwrap();
+        let cache = test_cache();
         let result = cache.get_binary("nonexistent_hash_12345");
         assert!(result.is_none());
     }
 
     #[test]
     fn get_binary_cache_hit() {
-        let cache = Cache::new().unwrap();
+        let cache = test_cache();
         let hash = "test_hash_binary_unique_xyz";
 
         // Ensure binaries directory exists (might have been removed by concurrent test)
@@ -188,7 +211,7 @@ mod tests {
 
     #[test]
     fn store_source() {
-        let cache = Cache::new().unwrap();
+        let cache = test_cache();
         let hash = "test_source_hash";
         let source = "fn main() {}";
 
@@ -204,7 +227,7 @@ mod tests {
 
     #[test]
     fn binary_path() {
-        let cache = Cache::new().unwrap();
+        let cache = test_cache();
         let hash = "test_hash";
         let path = cache.binary_path(hash);
 
@@ -214,7 +237,7 @@ mod tests {
 
     #[test]
     fn clear_cache() {
-        let cache = Cache::new().unwrap();
+        let cache = test_cache();
 
         // Add some test files (directories already created by Cache::new())
         let hash1 = "clear_test_unique_1a";
@@ -240,7 +263,7 @@ mod tests {
 
     #[test]
     fn clear_cache_empty() {
-        let cache = Cache::new().unwrap();
+        let cache = test_cache();
 
         // Ensure directories exist before clearing
         let _ = fs::create_dir_all(cache.cache_dir().join("binaries"));
@@ -253,7 +276,7 @@ mod tests {
 
     #[test]
     fn stats_empty_cache() {
-        let cache = Cache::new().unwrap();
+        let cache = test_cache();
 
         // Ensure directories exist
         let _ = fs::create_dir_all(cache.cache_dir().join("binaries"));
@@ -265,7 +288,7 @@ mod tests {
 
     #[test]
     fn stats_with_binaries() {
-        let cache = Cache::new().unwrap();
+        let cache = test_cache();
 
         // Ensure binaries directory exists (might have been removed by concurrent test)
         let _ = fs::create_dir_all(cache.cache_dir().join("binaries"));

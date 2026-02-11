@@ -32,5 +32,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Multi-platform releases (Linux, macOS, Windows)
 - Package distribution via Homebrew and npm
 
-[Unreleased]: https://github.com/yourusername/lob/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/yourusername/lob/releases/tag/v0.1.0
+[Unreleased]: https://github.com/olirice/lob/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/olirice/lob/releases/tag/v0.1.0
