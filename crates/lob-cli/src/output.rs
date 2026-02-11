@@ -13,6 +13,8 @@ pub enum OutputFormat {
     JsonLines,
     /// CSV (requires CSV input)
     Csv,
+    /// Table (requires CSV/JSON input)
+    Table,
 }
 
 impl OutputFormat {
@@ -23,6 +25,7 @@ impl OutputFormat {
             "json" => Some(Self::Json),
             "jsonl" | "jsonlines" => Some(Self::JsonLines),
             "csv" => Some(Self::Csv),
+            "table" => Some(Self::Table),
             _ => None,
         }
     }
@@ -59,6 +62,7 @@ mod tests {
             Some(OutputFormat::JsonLines)
         );
         assert_eq!(OutputFormat::from_str("csv"), Some(OutputFormat::Csv));
+        assert_eq!(OutputFormat::from_str("table"), Some(OutputFormat::Table));
         assert_eq!(OutputFormat::from_str("invalid"), None);
     }
 

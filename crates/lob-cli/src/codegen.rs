@@ -37,6 +37,12 @@ impl CodeGenerator {
             code.push_str("use lob_prelude::serde_json;\n");
         }
 
+        // Add tabled import if using Table output
+        if matches!(self.output_format, OutputFormat::Table) {
+            code.push_str("use lob_prelude::tabled::builder::Builder;\n");
+            code.push_str("use lob_prelude::tabled::settings::Style;\n");
+        }
+
         code.push('\n');
         code.push_str("fn main() {\n");
 
@@ -145,6 +151,40 @@ impl CodeGenerator {
                     code.push_str("    output_csv(&items);\n");
                 } else {
                     code.push_str("    output_csv(&[result]);\n");
+                }
+            }
+            OutputFormat::Table => {
+                if is_iter {
+                    code.push_str("    let items: Vec<_> = result.collect();\n");
+                    code.push_str("    if !items.is_empty() {\n");
+                    code.push_str("        let mut builder = Builder::default();\n");
+                    code.push_str("        // Extract headers from first item\n");
+                    code.push_str("        let mut headers: Vec<_> = items[0].keys().collect();\n");
+                    code.push_str("        headers.sort();\n");
+                    code.push_str(
+                        "        builder.push_record(headers.iter().map(|k| k.as_str()));\n",
+                    );
+                    code.push_str("        // Add data rows\n");
+                    code.push_str("        for item in &items {\n");
+                    code.push_str("            let row: Vec<_> = headers.iter().map(|k| item.get(*k).map(|v| v.as_str()).unwrap_or(\"\")).collect();\n");
+                    code.push_str("            builder.push_record(row);\n");
+                    code.push_str("        }\n");
+                    code.push_str(
+                        "        let table = builder.build().with(Style::rounded()).to_string();\n",
+                    );
+                    code.push_str("        println!(\"{}\", table);\n");
+                    code.push_str("    }\n");
+                } else {
+                    code.push_str("    let mut builder = Builder::default();\n");
+                    code.push_str("    let mut headers: Vec<_> = result.keys().collect();\n");
+                    code.push_str("    headers.sort();\n");
+                    code.push_str("    builder.push_record(headers.iter().map(|k| k.as_str()));\n");
+                    code.push_str("    let row: Vec<_> = headers.iter().map(|k| result.get(*k).map(|v| v.as_str()).unwrap_or(\"\")).collect();\n");
+                    code.push_str("    builder.push_record(row);\n");
+                    code.push_str(
+                        "    let table = builder.build().with(Style::rounded()).to_string();\n",
+                    );
+                    code.push_str("    println!(\"{}\", table);\n");
                 }
             }
         }

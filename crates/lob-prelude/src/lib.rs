@@ -17,6 +17,9 @@ pub use lob_core::{HashSet, Lob, LobExt};
 // Re-export serde_json for JSON output
 pub use serde_json;
 
+// Re-export tabled for table output
+pub use tabled;
+
 /// Creates a Lob iterator from stdin lines
 ///
 /// This function reads lines from stdin and returns a `Lob` iterator over them.

@@ -54,7 +54,7 @@ struct Args {
 
     /// Output format
     #[arg(short = 'f', long, value_name = "FORMAT")]
-    #[arg(value_parser = ["debug", "json", "jsonl", "csv"])]
+    #[arg(value_parser = ["debug", "json", "jsonl", "csv", "table"])]
     format: Option<String>,
 
     /// Show generated source code without executing
@@ -72,6 +72,10 @@ struct Args {
     /// Verbose output
     #[arg(short, long)]
     verbose: bool,
+
+    /// Show performance statistics after execution
+    #[arg(long)]
+    stats: bool,
 }
 
 fn main() {
@@ -190,15 +194,19 @@ fn run() -> Result<()> {
         eprintln!("Compiling expression...");
     }
 
-    let binary_path = compiler.compile_and_cache(&source, &cache, Some(&expression_clone))?;
+    let compile_start = std::time::Instant::now();
+    let compile_result = compiler.compile_and_cache(&source, &cache, Some(&expression_clone))?;
+    let compile_time = compile_start.elapsed();
 
     if args.verbose {
-        eprintln!("Compiled binary: {:?}", binary_path);
+        eprintln!("Compiled binary: {:?}", compile_result.binary_path);
+        eprintln!("Cache hit: {}", compile_result.cache_hit);
         eprintln!("Executing...");
     }
 
     // Execute the compiled binary
-    let mut cmd = Command::new(&binary_path);
+    let exec_start = std::time::Instant::now();
+    let mut cmd = Command::new(&compile_result.binary_path);
 
     // Pass files as arguments if any
     if !input_source.is_stdin() {
@@ -212,12 +220,31 @@ fn run() -> Result<()> {
         .spawn()?;
 
     let status = child.wait()?;
+    let exec_time = exec_start.elapsed();
+    let total_time = compile_start.elapsed();
 
     if !status.success() {
         return Err(LobError::Compilation(format!(
             "Execution failed with status: {}",
             status
         )));
+    }
+
+    // Display statistics if requested
+    if args.stats {
+        eprintln!();
+        eprintln!("Statistics:");
+        eprintln!("  Compilation time: {:?}", compile_time);
+        eprintln!("  Execution time:   {:?}", exec_time);
+        eprintln!("  Total time:       {:?}", total_time);
+        eprintln!(
+            "  Cache:            {}",
+            if compile_result.cache_hit {
+                "Hit (binary reused)"
+            } else {
+                "Miss (compiled)"
+            }
+        );
     }
 
     Ok(())

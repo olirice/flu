@@ -55,6 +55,7 @@ pub fn print_welcome() {
     println!("    --format json       JSON array");
     println!("    --format jsonl      JSON lines (one per line)");
     println!("    --format csv        CSV output (requires CSV input)");
+    println!("    --format table      Table output (requires CSV/JSON input)");
     println!();
 
     println!("{}", "LEARN MORE:".bold());

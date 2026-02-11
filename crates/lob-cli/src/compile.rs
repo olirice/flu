@@ -5,6 +5,14 @@ use crate::error::{LobError, Result};
 use std::path::PathBuf;
 use std::process::Command;
 
+/// Result of compilation with cache information
+pub struct CompileResult {
+    /// Path to the compiled binary
+    pub binary_path: PathBuf,
+    /// Whether the binary was found in cache
+    pub cache_hit: bool,
+}
+
 /// Compiler for lob expressions
 pub struct Compiler {
     /// Path to rustc executable
@@ -206,12 +214,15 @@ impl Compiler {
         source: &str,
         cache: &Cache,
         user_expr: Option<&str>,
-    ) -> Result<PathBuf> {
+    ) -> Result<CompileResult> {
         let hash = cache.hash_source(source);
 
         // Check cache first
         if let Some(binary_path) = cache.get_binary(&hash) {
-            return Ok(binary_path);
+            return Ok(CompileResult {
+                binary_path,
+                cache_hit: true,
+            });
         }
 
         // Cache miss - compile
@@ -220,7 +231,10 @@ impl Compiler {
 
         self.compile(&source_path, &binary_path, user_expr)?;
 
-        Ok(binary_path)
+        Ok(CompileResult {
+            binary_path,
+            cache_hit: false,
+        })
     }
 }
 
@@ -328,13 +342,15 @@ mod tests {
         let source = "fn main() { println!(\"test\"); }";
 
         // First compilation
-        let path1 = compiler.compile_and_cache(source, &cache, None).unwrap();
-        assert!(path1.exists());
+        let result1 = compiler.compile_and_cache(source, &cache, None).unwrap();
+        assert!(result1.binary_path.exists());
+        assert!(!result1.cache_hit); // First run should be a cache miss
 
         // Second compilation should hit cache
-        let path2 = compiler.compile_and_cache(source, &cache, None).unwrap();
+        let result2 = compiler.compile_and_cache(source, &cache, None).unwrap();
+        assert!(result2.cache_hit); // Second run should be a cache hit
 
-        assert_eq!(path1, path2);
+        assert_eq!(result1.binary_path, result2.binary_path);
     }
 
     #[test]
@@ -345,13 +361,13 @@ mod tests {
         let source1 = "fn main() { println!(\"test1\"); }";
         let source2 = "fn main() { println!(\"test2\"); }";
 
-        let path1 = compiler.compile_and_cache(source1, &cache, None).unwrap();
-        let path2 = compiler.compile_and_cache(source2, &cache, None).unwrap();
+        let result1 = compiler.compile_and_cache(source1, &cache, None).unwrap();
+        let result2 = compiler.compile_and_cache(source2, &cache, None).unwrap();
 
         // Different sources should produce different binaries
-        assert_ne!(path1, path2);
-        assert!(path1.exists());
-        assert!(path2.exists());
+        assert_ne!(result1.binary_path, result2.binary_path);
+        assert!(result1.binary_path.exists());
+        assert!(result2.binary_path.exists());
     }
 
     #[test]

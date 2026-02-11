@@ -23,6 +23,7 @@ zstd = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 colored = { workspace = true }
+tabled = { workspace = true }
 atty = "0.2.14"
 
 [build-dependencies]
