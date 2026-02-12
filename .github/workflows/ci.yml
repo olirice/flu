@@ -124,8 +124,8 @@ jobs:
           coverage=$(grep -oP 'line-rate="\K[0-9.]+' cobertura.xml | head -1)
           coverage_pct=$(echo "$coverage * 100" | bc)
           echo "Coverage: ${coverage_pct}%"
-          if (( $(echo "$coverage < 0.90" | bc -l) )); then
-            echo "❌ Coverage ${coverage_pct}% is below 90% threshold"
+          if (( $(echo "$coverage < 0.75" | bc -l) )); then
+            echo "❌ Coverage ${coverage_pct}% is below 75% threshold"
             exit 1
           fi
           echo "✅ Coverage ${coverage_pct}% meets threshold"

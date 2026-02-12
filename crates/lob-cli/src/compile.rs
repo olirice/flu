@@ -190,6 +190,18 @@ impl Compiler {
         output_path: &Path,
         user_expr: Option<&str>,
     ) -> Result<()> {
+        // Compile to a temp directory so intermediate .rcgu.o files don't land
+        // in the cache (where concurrent cache-clear could delete them).
+        let temp_dir = std::env::temp_dir().join(format!(
+            "lob-compile-{}",
+            output_path
+                .file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+        ));
+        std::fs::create_dir_all(&temp_dir)?;
+        let temp_output = temp_dir.join("binary");
+
         let mut cmd = Command::new(&self.rustc_path);
 
         cmd.arg("--edition=2021")
@@ -198,7 +210,7 @@ impl Compiler {
             .arg("--crate-type")
             .arg("bin")
             .arg("-o")
-            .arg(output_path)
+            .arg(&temp_output)
             .arg(source_path);
 
         // Add extern crate paths for lob-prelude and its dependencies
@@ -219,10 +231,16 @@ impl Compiler {
         let output = cmd.output()?;
 
         if !output.status.success() {
+            let _ = std::fs::remove_dir_all(&temp_dir);
             let stderr = String::from_utf8_lossy(&output.stderr);
             let formatted = LobError::format_compilation_error(&stderr, user_expr);
             return Err(LobError::Compilation(formatted));
         }
+
+        // Move compiled binary to the cache location
+        std::fs::rename(&temp_output, output_path)
+            .or_else(|_| std::fs::copy(&temp_output, output_path).map(|_| ()))?;
+        let _ = std::fs::remove_dir_all(&temp_dir);
 
         Ok(())
     }
