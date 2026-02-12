@@ -22,15 +22,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Grouping operations (chunk, window, group_by)
 - File input support
 
-### Documentation
-- README with examples
-- API documentation
-- Contributing guide
-
 ### Infrastructure
 - CI/CD with GitHub Actions
 - Multi-platform releases (Linux, macOS, Windows)
-- Package distribution via Homebrew and npm
+- Embedded toolchain support for self-contained binaries
 
 [Unreleased]: https://github.com/olirice/lob/compare/v0.1.0...HEAD
 [0.1.0]: https://github.com/olirice/lob/releases/tag/v0.1.0

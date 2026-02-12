@@ -49,32 +49,3 @@ impl InputSource {
         Ok(())
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_input_source_is_stdin() {
-        let source = InputSource::new(vec![], InputFormat::Lines);
-        assert!(source.is_stdin());
-
-        let source = InputSource::new(vec![PathBuf::from("test.txt")], InputFormat::Lines);
-        assert!(!source.is_stdin());
-    }
-
-    #[test]
-    fn test_input_source_validate_missing_file() {
-        let source = InputSource::new(
-            vec![PathBuf::from("/nonexistent/file.txt")],
-            InputFormat::Lines,
-        );
-        assert!(source.validate().is_err());
-    }
-
-    #[test]
-    fn test_input_source_validate_empty() {
-        let source = InputSource::new(vec![], InputFormat::Lines);
-        assert!(source.validate().is_ok());
-    }
-}

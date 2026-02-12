@@ -8,7 +8,7 @@
 
 use std::env;
 use std::fs::{self, File};
-use std::io::{self, Write};
+use std::io;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -85,9 +85,7 @@ fn create_toolchain_archive(archive_path: &Path) -> io::Result<()> {
 
 /// Create an empty placeholder archive
 fn create_placeholder_archive(archive_path: &Path) -> io::Result<()> {
-    // Create an empty file
-    let mut file = File::create(archive_path)?;
-    file.write_all(&[])?;
+    File::create(archive_path)?;
     Ok(())
 }
 

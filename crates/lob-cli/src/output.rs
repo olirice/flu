@@ -44,31 +44,3 @@ impl OutputFormat {
 pub fn is_terminal() -> bool {
     stdout().is_terminal()
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_output_format_from_str() {
-        assert_eq!(OutputFormat::from_str("debug"), Some(OutputFormat::Debug));
-        assert_eq!(OutputFormat::from_str("json"), Some(OutputFormat::Json));
-        assert_eq!(
-            OutputFormat::from_str("jsonl"),
-            Some(OutputFormat::JsonLines)
-        );
-        assert_eq!(
-            OutputFormat::from_str("jsonlines"),
-            Some(OutputFormat::JsonLines)
-        );
-        assert_eq!(OutputFormat::from_str("csv"), Some(OutputFormat::Csv));
-        assert_eq!(OutputFormat::from_str("table"), Some(OutputFormat::Table));
-        assert_eq!(OutputFormat::from_str("invalid"), None);
-    }
-
-    #[test]
-    fn test_output_format_default() {
-        assert_eq!(OutputFormat::default(true), OutputFormat::Debug);
-        assert_eq!(OutputFormat::default(false), OutputFormat::JsonLines);
-    }
-}

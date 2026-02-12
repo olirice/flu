@@ -9,9 +9,6 @@
 mod fluent;
 mod grouping;
 mod joins;
-mod selection;
-mod terminal;
-mod transformation;
 
 pub use fluent::{Lob, LobExt};
 

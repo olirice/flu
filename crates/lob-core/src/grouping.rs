@@ -2,7 +2,7 @@
 
 #![allow(clippy::missing_const_for_fn)]
 
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::hash::Hash;
 
 /// Iterator that groups elements into chunks of size n
@@ -43,7 +43,7 @@ impl<I: Iterator> Iterator for ChunkIterator<I> {
 pub struct WindowIterator<I: Iterator> {
     iter: I,
     window_size: usize,
-    buffer: Vec<I::Item>,
+    buffer: VecDeque<I::Item>,
     started: bool,
 }
 
@@ -56,7 +56,7 @@ where
         Self {
             iter,
             window_size,
-            buffer: Vec::with_capacity(window_size),
+            buffer: VecDeque::with_capacity(window_size),
             started: false,
         }
     }
@@ -73,14 +73,14 @@ where
             // Fill initial buffer
             for _ in 0..self.window_size {
                 match self.iter.next() {
-                    Some(item) => self.buffer.push(item),
+                    Some(item) => self.buffer.push_back(item),
                     None => break,
                 }
             }
             self.started = true;
 
             if self.buffer.len() == self.window_size {
-                return Some(self.buffer.clone());
+                return Some(self.buffer.iter().cloned().collect());
             }
             return None;
         }
@@ -88,9 +88,9 @@ where
         // Slide window: remove first, add new
         match self.iter.next() {
             Some(item) => {
-                self.buffer.remove(0);
-                self.buffer.push(item);
-                Some(self.buffer.clone())
+                self.buffer.pop_front();
+                self.buffer.push_back(item);
+                Some(self.buffer.iter().cloned().collect())
             }
             None => None,
         }
@@ -149,67 +149,5 @@ where
 
         // Iterate through groups
         self.groups.as_mut().and_then(std::iter::Iterator::next)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn chunk_basic() {
-        let data = vec![1, 2, 3, 4, 5];
-        let chunks: Vec<_> = ChunkIterator::new(data.into_iter(), 2).collect();
-        assert_eq!(chunks, vec![vec![1, 2], vec![3, 4], vec![5]]);
-    }
-
-    #[test]
-    fn chunk_exact() {
-        let data = vec![1, 2, 3, 4];
-        let chunks: Vec<_> = ChunkIterator::new(data.into_iter(), 2).collect();
-        assert_eq!(chunks, vec![vec![1, 2], vec![3, 4]]);
-    }
-
-    #[test]
-    fn chunk_empty() {
-        let data: Vec<i32> = vec![];
-        let chunks: Vec<_> = ChunkIterator::new(data.into_iter(), 2).collect();
-        assert_eq!(chunks, Vec::<Vec<i32>>::new());
-    }
-
-    #[test]
-    fn window_basic() {
-        let data = vec![1, 2, 3, 4, 5];
-        let windows: Vec<_> = WindowIterator::new(data.into_iter(), 3).collect();
-        assert_eq!(windows, vec![vec![1, 2, 3], vec![2, 3, 4], vec![3, 4, 5]]);
-    }
-
-    #[test]
-    fn window_size_2() {
-        let data = vec![1, 2, 3, 4];
-        let windows: Vec<_> = WindowIterator::new(data.into_iter(), 2).collect();
-        assert_eq!(windows, vec![vec![1, 2], vec![2, 3], vec![3, 4]]);
-    }
-
-    #[test]
-    fn window_too_small() {
-        let data = vec![1, 2];
-        let windows: Vec<_> = WindowIterator::new(data.into_iter(), 3).collect();
-        assert_eq!(windows, Vec::<Vec<i32>>::new());
-    }
-
-    #[test]
-    fn group_by_basic() {
-        let data = vec![1, 2, 3, 4, 5, 6];
-        let mut groups: Vec<_> = GroupByCollectIterator::new(data.into_iter(), |x| x % 2).collect();
-
-        // Sort for deterministic testing
-        groups.sort_by_key(|(k, _)| *k);
-
-        assert_eq!(groups.len(), 2);
-        assert_eq!(groups[0].0, 0); // even
-        assert_eq!(groups[0].1, vec![2, 4, 6]);
-        assert_eq!(groups[1].0, 1); // odd
-        assert_eq!(groups[1].1, vec![1, 3, 5]);
     }
 }

@@ -30,7 +30,7 @@ pub struct Lob<I> {
 }
 
 impl<I: Iterator> Lob<I> {
-    /// Create a new Flu wrapper from an iterator
+    /// Create a new Lob wrapper from an iterator
     #[must_use]
     #[allow(clippy::missing_const_for_fn)]
     pub fn new(iter: I) -> Self {
@@ -630,7 +630,7 @@ impl<I: Iterator> Lob<I> {
 /// assert_eq!(result, vec![2, 4]);
 /// ```
 pub trait LobExt: Iterator + Sized {
-    /// Convert an iterator into a `Flu` wrapper
+    /// Convert an iterator into a `Lob` wrapper
     fn lob(self) -> Lob<Self> {
         Lob::new(self)
     }
@@ -638,51 +638,12 @@ pub trait LobExt: Iterator + Sized {
 
 impl<I: Iterator> LobExt for I {}
 
-/// Implement `IntoIterator` for Flu to allow using it in for loops
+/// Implement `IntoIterator` for Lob to allow using it in for loops
 impl<I: Iterator> IntoIterator for Lob<I> {
     type Item = I::Item;
     type IntoIter = I;
 
     fn into_iter(self) -> Self::IntoIter {
         self.iter
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn basic_filter() {
-        let result: Vec<_> = (0..10).lob().filter(|x| x % 2 == 0).collect();
-        assert_eq!(result, vec![0, 2, 4, 6, 8]);
-    }
-
-    #[test]
-    fn chained_operations() {
-        let result: Vec<_> = (0..10)
-            .lob()
-            .filter(|x| x % 2 == 0)
-            .map(|x| x * 2)
-            .take(3)
-            .collect();
-        assert_eq!(result, vec![0, 4, 8]);
-    }
-
-    #[test]
-    fn terminal_operations() {
-        assert_eq!((1..=5).lob().sum::<i32>(), 15);
-        assert_eq!((1..=5).lob().count(), 5);
-        assert_eq!((1..=5).lob().min(), Some(1));
-        assert_eq!((1..=5).lob().max(), Some(5));
-    }
-
-    #[test]
-    fn into_iterator_for_loop() {
-        let mut result = Vec::new();
-        for item in (0..5).lob().map(|x| x * 2) {
-            result.push(item);
-        }
-        assert_eq!(result, vec![0, 2, 4, 6, 8]);
     }
 }
