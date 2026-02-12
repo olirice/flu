@@ -193,7 +193,8 @@ impl Compiler {
         // Compile to a temp directory so intermediate .rcgu.o files don't land
         // in the cache (where concurrent cache-clear could delete them).
         let temp_dir = std::env::temp_dir().join(format!(
-            "lob-compile-{}",
+            "lob-compile-{}-{}",
+            std::process::id(),
             output_path
                 .file_name()
                 .unwrap_or_default()

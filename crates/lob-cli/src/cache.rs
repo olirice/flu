@@ -13,9 +13,13 @@ pub struct Cache {
 impl Cache {
     /// Create a new cache manager
     pub fn new() -> Result<Self> {
-        let cache_dir = dirs::cache_dir()
-            .ok_or_else(|| LobError::Cache("No cache directory found".to_string()))?
-            .join("lob");
+        let cache_dir = if let Ok(dir) = std::env::var("LOB_CACHE_DIR") {
+            PathBuf::from(dir)
+        } else {
+            dirs::cache_dir()
+                .ok_or_else(|| LobError::Cache("No cache directory found".to_string()))?
+                .join("lob")
+        };
 
         fs::create_dir_all(&cache_dir)?;
         fs::create_dir_all(cache_dir.join("binaries"))?;

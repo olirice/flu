@@ -568,11 +568,15 @@ fn cache_stats() -> Result<()> {
 
 #[test]
 fn clear_cache() -> Result<()> {
+    let cache_dir = std::env::temp_dir().join(format!("lob_test_clear_{}", std::process::id()));
+    let _ = fs::create_dir_all(&cache_dir);
     lob()
+        .env("LOB_CACHE_DIR", cache_dir.to_str().unwrap())
         .arg("--clear-cache")
         .assert()
         .success()
         .stdout(predicate::str::contains("Cache cleared"));
+    let _ = fs::remove_dir_all(&cache_dir);
     Ok(())
 }
 
@@ -707,10 +711,14 @@ fn error_method_not_found() -> Result<()> {
 
 #[test]
 fn cache_miss_then_hit() -> Result<()> {
+    let cache_dir = std::env::temp_dir().join(format!("lob_test_cache_{}", std::process::id()));
+    let _ = fs::create_dir_all(&cache_dir);
+    let cache_str = cache_dir.to_str().unwrap();
     let expr = "lob(vec![42]).to_list()";
 
     // First run
     lob()
+        .env("LOB_CACHE_DIR", cache_str)
         .arg("-v")
         .arg(expr)
         .assert()
@@ -719,12 +727,15 @@ fn cache_miss_then_hit() -> Result<()> {
 
     // Second run should hit cache
     lob()
+        .env("LOB_CACHE_DIR", cache_str)
         .arg("-v")
         .arg(expr)
         .assert()
         .success()
         .stderr(predicate::str::contains("Cache hit: true"))
         .stdout(predicate::str::contains("[42]"));
+
+    let _ = fs::remove_dir_all(&cache_dir);
     Ok(())
 }
 
