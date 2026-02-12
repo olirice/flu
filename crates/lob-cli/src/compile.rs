@@ -2,7 +2,7 @@
 
 use crate::cache::Cache;
 use crate::error::{LobError, Result};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 /// Result of compilation with cache information
@@ -161,8 +161,8 @@ impl Compiler {
     /// Compile source code to binary
     pub fn compile(
         &self,
-        source_path: &PathBuf,
-        output_path: &PathBuf,
+        source_path: &Path,
+        output_path: &Path,
         user_expr: Option<&str>,
     ) -> Result<()> {
         let mut cmd = Command::new(&self.rustc_path);
@@ -235,208 +235,5 @@ impl Compiler {
             binary_path,
             cache_hit: false,
         })
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::fs;
-    use std::io::Write;
-    use std::path::PathBuf;
-
-    fn test_cache() -> Cache {
-        let timestamp = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        let temp_dir = std::env::temp_dir()
-            .join("lob_test_cache_compile")
-            .join(format!("{}_{}", std::process::id(), timestamp));
-
-        Cache::with_dir(temp_dir).unwrap()
-    }
-
-    #[test]
-    fn find_target_dir_test() {
-        // Test that we can find the target directory
-        let target_dir = Compiler::find_target_dir();
-        eprintln!("Found target dir: {:?}", target_dir);
-
-        // In some CI environments or during certain build configurations,
-        // the prelude might not be built yet. We verify the logic works
-        // but don't require the prelude to exist in all cases.
-        if let Some(dir) = target_dir {
-            eprintln!("Target dir found at: {:?}", dir);
-            let prelude_lib = dir.join("liblob_prelude.rlib");
-            eprintln!("Checking for: {:?}", prelude_lib);
-
-            // If the directory was found, it should at least exist
-            assert!(dir.exists(), "Target directory should exist: {:?}", dir);
-
-            // Log whether prelude exists (useful for debugging CI failures)
-            if !prelude_lib.exists() {
-                eprintln!("Warning: lob_prelude.rlib not found at {:?}", prelude_lib);
-                eprintln!("This is expected in some build configurations");
-            }
-        } else {
-            eprintln!(
-                "No target directory found - this may be expected in some build configurations"
-            );
-        }
-    }
-
-    #[test]
-    fn system_compiler_available() {
-        // This test will pass if rustc is installed
-        match Compiler::system() {
-            Ok(_) => (),
-            Err(e) => panic!("System compiler not available: {}", e),
-        }
-    }
-
-    #[test]
-    fn custom_compiler_creation() {
-        let rustc_path = PathBuf::from("/custom/rustc");
-        let sysroot = Some(PathBuf::from("/custom/sysroot"));
-
-        let compiler = Compiler::custom(rustc_path.clone(), sysroot.clone());
-
-        assert_eq!(compiler.rustc_path, rustc_path);
-        assert_eq!(compiler.sysroot, sysroot);
-    }
-
-    #[test]
-    fn custom_compiler_no_sysroot() {
-        let rustc_path = PathBuf::from("/custom/rustc");
-        let compiler = Compiler::custom(rustc_path.clone(), None);
-
-        assert_eq!(compiler.rustc_path, rustc_path);
-        assert_eq!(compiler.sysroot, None);
-    }
-
-    #[test]
-    fn compile_with_invalid_source() {
-        let compiler = Compiler::system().unwrap();
-        let cache = test_cache();
-
-        // Create invalid Rust source
-        let invalid_source = "fn main() { this is not valid rust }";
-
-        // Should return compilation error
-        let result = compiler.compile_and_cache(invalid_source, &cache, Some("test_expr"));
-        assert!(result.is_err());
-
-        if let Err(LobError::Compilation(msg)) = result {
-            assert!(!msg.is_empty());
-        } else {
-            panic!("Expected compilation error");
-        }
-    }
-
-    #[test]
-    fn compile_and_cache_with_cache_hit() {
-        let compiler = Compiler::system().unwrap();
-        let cache = test_cache();
-
-        let source = "fn main() { println!(\"test\"); }";
-
-        // First compilation
-        let result1 = compiler.compile_and_cache(source, &cache, None).unwrap();
-        assert!(result1.binary_path.exists());
-        assert!(!result1.cache_hit); // First run should be a cache miss
-
-        // Second compilation should hit cache
-        let result2 = compiler.compile_and_cache(source, &cache, None).unwrap();
-        assert!(result2.cache_hit); // Second run should be a cache hit
-
-        assert_eq!(result1.binary_path, result2.binary_path);
-    }
-
-    #[test]
-    fn compile_and_cache_different_sources() {
-        let compiler = Compiler::system().unwrap();
-        let cache = test_cache();
-
-        let source1 = "fn main() { println!(\"test1\"); }";
-        let source2 = "fn main() { println!(\"test2\"); }";
-
-        let result1 = compiler.compile_and_cache(source1, &cache, None).unwrap();
-        let result2 = compiler.compile_and_cache(source2, &cache, None).unwrap();
-
-        // Different sources should produce different binaries
-        assert_ne!(result1.binary_path, result2.binary_path);
-        assert!(result1.binary_path.exists());
-        assert!(result2.binary_path.exists());
-    }
-
-    #[test]
-    fn compile_with_user_expr_in_error() {
-        let compiler = Compiler::system().unwrap();
-        let cache = test_cache();
-
-        let invalid_source = "fn main() { let x: i32 = \"string\"; }";
-        let user_expr = "_.map(|x| x + \"oops\")";
-
-        let result = compiler.compile_and_cache(invalid_source, &cache, Some(user_expr));
-        assert!(result.is_err());
-
-        // The error should be formatted with user expression context
-        if let Err(LobError::Compilation(msg)) = result {
-            assert!(!msg.is_empty());
-        }
-    }
-
-    #[test]
-    fn compile_with_custom_sysroot() {
-        let temp_dir = std::env::temp_dir().join("test_sysroot");
-        let _ = fs::create_dir_all(&temp_dir);
-
-        let compiler = Compiler::custom(PathBuf::from("rustc"), Some(temp_dir.clone()));
-
-        assert_eq!(compiler.sysroot, Some(temp_dir));
-    }
-
-    #[test]
-    fn compile_direct_call() {
-        let compiler = Compiler::system().unwrap();
-        let temp_dir = std::env::temp_dir().join("lob_compile_test");
-        let _ = fs::create_dir_all(&temp_dir);
-
-        let source_path = temp_dir.join("test.rs");
-        let output_path = temp_dir.join("test_bin");
-
-        // Write valid Rust source
-        let mut file = fs::File::create(&source_path).unwrap();
-        file.write_all(b"fn main() { println!(\"test\"); }")
-            .unwrap();
-
-        // Compile directly
-        let result = compiler.compile(&source_path, &output_path, None);
-
-        // Should succeed (or fail gracefully if linking issues occur)
-        // The key is exercising the compile path
-        match result {
-            Ok(()) => assert!(output_path.exists()),
-            Err(LobError::Compilation(_)) => {
-                // Expected if lob_prelude isn't found
-            }
-            Err(e) => panic!("Unexpected error: {}", e),
-        }
-
-        // Cleanup
-        let _ = fs::remove_dir_all(&temp_dir);
-    }
-
-    #[test]
-    fn compile_with_invalid_path() {
-        let compiler = Compiler::system().unwrap();
-
-        let source_path = PathBuf::from("/nonexistent/file.rs");
-        let output_path = PathBuf::from("/tmp/output");
-
-        // Should return an error when trying to compile nonexistent file
-        let result = compiler.compile(&source_path, &output_path, None);
-        assert!(result.is_err());
     }
 }

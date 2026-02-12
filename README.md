@@ -1,6 +1,6 @@
 # lob
 
-**Embedded Rust Pipeline Tool** - A CLI for running Rust data pipeline one-liners with native performance.
+**Rust Pipeline Tool** - Run Rust data pipeline one-liners with native performance.
 
 [![CI](https://github.com/olirice/lob/workflows/CI/badge.svg)](https://github.com/olirice/lob/actions)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
@@ -14,12 +14,11 @@
 - **Lazy Evaluation** - Memory-efficient streaming operations
 - **Fluent API** - Chainable operations for readable data transformations
 - **Rich Operations** - Filter, map, group, join, and 20+ operations
+- **Embedded Toolchain** - Self-contained binary with no system dependencies
 
 ## Quick Start
 
 ### Installation
-
-**Prerequisites:** Rust toolchain
 
 ```bash
 cargo install --path crates/lob-cli
@@ -95,7 +94,6 @@ lob sales.csv --parse-csv '
 ```bash
 # Unique lines
 cat data.txt | lob '_.unique()'
-# Output: (unique lines from data.txt)
 
 # Chunk into groups of 5
 seq 1 20 | lob '_.chunk(5).map(|chunk| chunk.len()).sum::<usize>()'
@@ -116,6 +114,10 @@ seq 1 10 | lob '_.window(3).take(3)'
 3. **Cache** - Compiled binary is cached (SHA256-based) for instant reuse
 4. **Execute** - Native binary processes your data at full speed
 
+```
+Input Data -> lob Expression -> Generated Rust Code -> Compiled Binary (cached) -> Output
+```
+
 ### Performance
 
 ```bash
@@ -127,8 +129,6 @@ seq 1 1000000 | lob '_.filter(|x| x.parse::<i32>().unwrap() % 2 == 0).count()'
 seq 1 1000000 | lob '_.filter(|x| x.parse::<i32>().unwrap() % 2 == 0).count()'
 # Output: 500000 (instant)
 ```
-
-**Result**: ~14 million items/second throughput
 
 ## Operations
 
@@ -156,8 +156,7 @@ seq 1 1000000 | lob '_.filter(|x| x.parse::<i32>().unwrap() % 2 == 0).count()'
 - `join_left(other, left_key, right_key)` - Left join
 
 ### Terminal
-- `collect()` - Collect to vector
-- `to_list()` - Collect to vector
+- `collect()` / `to_list()` - Collect to vector
 - `count()` - Count items
 - `sum()` - Sum items
 - `min()` / `max()` - Find extrema
@@ -167,157 +166,64 @@ seq 1 1000000 | lob '_.filter(|x| x.parse::<i32>().unwrap() % 2 == 0).count()'
 
 ## Input Formats
 
-### CSV Parsing
-
 ```bash
-# Parse CSV with headers (each row becomes HashMap<String, String>)
+# CSV with headers (each row becomes HashMap<String, String>)
 lob data.csv --parse-csv '_.filter(|r| r["age"].parse::<i32>().unwrap() > 18)'
 
-# Access columns by name
-lob users.csv --parse-csv '_.map(|r| format!("{}: {}", r["name"], r["email"]))'
-```
-
-### TSV Parsing
-
-```bash
-# Parse tab-separated values
+# TSV (tab-separated)
 lob data.tsv --parse-tsv '_.filter(|r| r["status"] == "active")'
-```
 
-### JSON Lines
-
-```bash
-# Parse newline-delimited JSON
+# JSON Lines (newline-delimited JSON)
 lob logs.jsonl --parse-json '_.filter(|obj| obj["level"] == "ERROR")'
 ```
 
 ## Output Formats
 
-### JSON Output
-
 ```bash
-# Pretty JSON array
+# JSON array
 lob data.csv --parse-csv '_.take(5)' --format json
-# Output:
-# [
-#   {"name": "Alice", "age": "30"},
-#   {"name": "Bob", "age": "25"}
-# ]
-```
 
-### JSON Lines
-
-```bash
-# Newline-delimited JSON (one per line)
+# JSON Lines (one object per line, great for piping to jq)
 lob data.csv --parse-csv '_.filter(...)' --format jsonl | jq '.name'
-# Output:
-# {"name":"Alice","age":"30"}
-# {"name":"Bob","age":"25"}
-```
 
-### CSV Output
-
-```bash
-# Output as CSV
+# CSV
 lob data.csv --parse-csv '_.filter(|r| r["age"].parse::<i32>().unwrap() > 25)' --format csv
-```
 
-### Table Output
-
-```bash
-# Display as formatted table (requires CSV/JSON input)
+# Formatted table
 lob users.csv --parse-csv '_.take(5)' --format table
-# Output:
-# ╭─────┬─────────────────────┬─────────╮
-# │ age │ email               │ name    │
-# ├─────┼─────────────────────┼─────────┤
-# │ 30  │ alice@example.com   │ Alice   │
-# │ 25  │ bob@example.com     │ Bob     │
-# │ 35  │ charlie@example.com │ Charlie │
-# ╰─────┴─────────────────────┴─────────╯
 ```
 
-## Advanced Features
-
-### Cache Management
+## CLI Reference
 
 ```bash
-# Show cache stats
-lob --cache-stats
+lob [OPTIONS] <EXPRESSION> [FILE...]
 
-# Clear cache
-lob --clear-cache
+Options:
+  --parse-csv         Parse input as CSV with headers
+  --parse-tsv         Parse input as TSV with headers
+  --parse-json        Parse input as JSON lines
+  -f, --format FMT    Output format: debug, json, jsonl, csv, table
+  -s, --show-source   Show generated source code without executing
+  --stats             Show performance statistics after execution
+  --clear-cache       Clear the compilation cache
+  --cache-stats       Show cache statistics
+  -v, --verbose       Verbose output
+  -h, --help          Print help
+  -V, --version       Print version
 ```
-
-### Performance Statistics
-
-```bash
-# Show live execution statistics (opt-in)
-seq 1 100000 | lob '_.filter(|x| x.parse::<i32>().unwrap() % 2 == 0).count()' --stats
-# Output:
-# [Stats] Items: 10000 | Throughput: 12832160 items/s | Elapsed: 0.0s
-# [Stats] Items: 20000 | Throughput: 12570047 items/s | Elapsed: 0.0s
-# ...
-# [Final Stats] Total items: 100000 | Throughput: 6990441 items/s | Total time: 0.014s
-# 50000
-#
-# Statistics:
-#   Compilation time: 360.37ms
-#   Execution time:   260.73ms
-#   Total time:       621.10ms
-#   Cache:            Miss (compiled)
-```
-
-### Debug Mode
-
-```bash
-# Show generated source
-lob --show-source '_.take(5)'
-
-# Show generated source for CSV input
-lob --show-source --parse-csv '_.filter(|r| r["age"] > "25")'
-
-# Verbose output
-lob -v '_.take(5)'
-```
-
-## Architecture
-
-```
-Input Data � lob Expression � Generated Rust Code � Compiled Binary (cached) � Output
-```
-
-**Caching Strategy:**
-- Expression hashed with SHA256
-- Compiled binary stored in `~/.cache/lob/binaries/`
-- Source saved in `~/.cache/lob/sources/` for debugging
 
 ## Development
 
-### Building
-
 ```bash
+# Build
 cargo build --release
-```
 
-### Testing
-
-```bash
+# Test
 cargo test --all
-```
 
-### Pre-commit Hooks
-
-```bash
+# Set up pre-commit hooks
 git config core.hooksPath .githooks
 ```
-
-## Documentation
-
-- [Performance Analysis](PERFORMANCE.md) - Detailed performance characteristics
-- [Lazy Evaluation](LAZY_EVALUATION.md) - How lazy evaluation works
-- [Error Formatting](ERROR_FORMATTING.md) - Pretty error messages
-- [Embedded Toolchain](EMBEDDED_TOOLCHAIN_README.md) - Self-contained binaries
 
 ## Inspiration
 
@@ -326,4 +232,3 @@ lob is inspired by [flupy](https://github.com/olirice/flupy), bringing Python's 
 ## License
 
 Licensed under the MIT License. See [LICENSE](LICENSE) for details.
-

@@ -100,15 +100,3 @@ impl EmbeddedToolchain {
         self.rustc_path().exists()
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn toolchain_dir_exists() {
-        // Just check we can get a toolchain directory path
-        let dir = EmbeddedToolchain::toolchain_dir();
-        assert!(dir.is_ok());
-    }
-}

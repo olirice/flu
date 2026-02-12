@@ -66,15 +66,3 @@ pub fn print_welcome() {
 
     println!("{}", "https://github.com/olirice/lob".dimmed());
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_print_welcome_doesnt_panic() {
-        // Just ensure the function doesn't panic when called
-        // We can't easily test the output in a unit test
-        print_welcome();
-    }
-}

@@ -1,6 +1,6 @@
-//! Lob - Embedded Rust Pipeline Tool
+//! Lob - Rust Pipeline Tool
 //!
-//! A self-contained CLI for running Rust data pipeline one-liners.
+//! A CLI for running Rust data pipeline one-liners with native performance.
 
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
@@ -22,11 +22,12 @@ use compile::Compiler;
 use error::{LobError, Result};
 use input::{InputFormat, InputSource};
 use output::OutputFormat;
+use std::io::IsTerminal;
 use std::path::PathBuf;
 use std::process::Command;
 use toolchain::EmbeddedToolchain;
 
-/// Lob - Embedded Rust Pipeline Tool
+/// Lob - Rust Pipeline Tool
 #[derive(Parser, Debug)]
 #[command(name = "lob")]
 #[command(about = "Run Rust data pipeline one-liners", long_about = None)]
@@ -89,35 +90,6 @@ fn main() {
     }
 }
 
-/// Initialize the compiler, trying embedded toolchain first, then system rustc
-fn initialize_compiler(verbose: bool) -> Result<Compiler> {
-    // Try embedded toolchain first
-    match EmbeddedToolchain::ensure_extracted() {
-        Ok(toolchain) => {
-            if toolchain.is_valid() {
-                if verbose {
-                    eprintln!("Using embedded Rust toolchain");
-                }
-                return Ok(Compiler::custom(
-                    toolchain.rustc_path(),
-                    Some(toolchain.sysroot()),
-                ));
-            } else if verbose {
-                eprintln!("Embedded toolchain invalid, falling back to system rustc");
-            }
-        }
-        Err(e) => {
-            if verbose {
-                eprintln!("Embedded toolchain not available: {}", e);
-                eprintln!("Falling back to system rustc");
-            }
-        }
-    }
-
-    // Fall back to system rustc
-    Compiler::system()
-}
-
 fn run() -> Result<()> {
     let args = Args::parse();
 
@@ -141,7 +113,7 @@ fn run() -> Result<()> {
 
     // Show welcome message if no expression and stdin is a terminal
     if args.expression.is_none() {
-        if args.files.is_empty() && atty::is(atty::Stream::Stdin) {
+        if args.files.is_empty() && std::io::stdin().is_terminal() {
             welcome::print_welcome();
             return Ok(());
         }
@@ -176,8 +148,12 @@ fn run() -> Result<()> {
     };
 
     // Generate code
-    let expression_clone = expression.clone();
-    let generator = CodeGenerator::new(expression, input_source.clone(), output_format, args.stats);
+    let generator = CodeGenerator::new(
+        expression.clone(),
+        input_source.clone(),
+        output_format,
+        args.stats,
+    );
     let source = generator.generate()?;
 
     if args.show_source {
@@ -185,20 +161,60 @@ fn run() -> Result<()> {
         return Ok(());
     }
 
-    // Initialize cache and compiler
-    let cache = Cache::new()?;
-    let compiler = initialize_compiler(args.verbose)?;
+    // Compile and execute
+    compile_and_execute(
+        &expression,
+        &source,
+        &input_source,
+        args.verbose,
+        args.stats,
+    )
+}
 
-    // Compile (with caching)
-    if args.verbose {
+/// Initialize the compiler, trying embedded toolchain first, then system rustc
+fn initialize_compiler(verbose: bool) -> Result<Compiler> {
+    match EmbeddedToolchain::ensure_extracted() {
+        Ok(toolchain) if toolchain.is_valid() => {
+            if verbose {
+                eprintln!("Using embedded Rust toolchain");
+            }
+            Ok(Compiler::custom(
+                toolchain.rustc_path(),
+                Some(toolchain.sysroot()),
+            ))
+        }
+        Ok(_) if verbose => {
+            eprintln!("Embedded toolchain invalid, falling back to system rustc");
+            Compiler::system()
+        }
+        Err(e) if verbose => {
+            eprintln!("Embedded toolchain not available: {e}");
+            Compiler::system()
+        }
+        _ => Compiler::system(),
+    }
+}
+
+/// Compile the generated source and execute the resulting binary
+fn compile_and_execute(
+    expression: &str,
+    source: &str,
+    input_source: &InputSource,
+    verbose: bool,
+    show_stats: bool,
+) -> Result<()> {
+    let cache = Cache::new()?;
+    let compiler = initialize_compiler(verbose)?;
+
+    if verbose {
         eprintln!("Compiling expression...");
     }
 
     let compile_start = std::time::Instant::now();
-    let compile_result = compiler.compile_and_cache(&source, &cache, Some(&expression_clone))?;
+    let compile_result = compiler.compile_and_cache(source, &cache, Some(expression))?;
     let compile_time = compile_start.elapsed();
 
-    if args.verbose {
+    if verbose {
         eprintln!("Compiled binary: {:?}", compile_result.binary_path);
         eprintln!("Cache hit: {}", compile_result.cache_hit);
         eprintln!("Executing...");
@@ -208,7 +224,6 @@ fn run() -> Result<()> {
     let exec_start = std::time::Instant::now();
     let mut cmd = Command::new(&compile_result.binary_path);
 
-    // Pass files as arguments if any
     if !input_source.is_stdin() {
         cmd.args(&input_source.files);
     }
@@ -230,8 +245,7 @@ fn run() -> Result<()> {
         )));
     }
 
-    // Display statistics if requested
-    if args.stats {
+    if show_stats {
         eprintln!();
         eprintln!("Statistics:");
         eprintln!("  Compilation time: {:?}", compile_time);
